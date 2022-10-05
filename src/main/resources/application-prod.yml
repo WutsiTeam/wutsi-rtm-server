@@ -1,3 +1,13 @@
+spring:
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        debug: false
+
 wutsi:
   client-id: wutsi-rtm
   platform:

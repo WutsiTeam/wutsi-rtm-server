@@ -24,7 +24,6 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
-
   jackson:
     deserialization:
       FAIL_ON_UNKNOWN_PROPERTIES: false
@@ -33,6 +32,21 @@ spring:
       ACCEPT_CASE_INSENSITIVE_ENUMS: true
       ACCEPT_CASE_INSENSITIVE_PROPERTIES: true
     default-property-inclusion: non_null
+  mail:
+    default-encoding: UTF-8
+    host: localhost
+    port: 2525
+    username: username
+    password: secret
+    properties:
+      mail:
+        debug: true
+        smtp:
+          from: no-reply@wutsi.com
+          auth: true
+          starttls:
+            enable: true
+    test-connection: false
 
 wutsi:
   client-id: wutsi-rtm
