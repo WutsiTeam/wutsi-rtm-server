@@ -1,0 +1,186 @@
+
+name: master
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 11
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          mvn -q -s settings.xml install
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v3
+        with:
+          name: appbundle
+          path: target/*.jar
+
+  deploy-test:
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    steps:
+      - uses: actions/checkout@v3
+      - name: JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 11
+      - name: Get artigact
+        uses: actions/download-artifact@v3
+        with:
+          name: appbundle
+
+      - name: HerokuCLI
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+          heroku plugins:install @heroku-cli/plugin-java
+
+      - name: Heroku-Deploy-Test
+        env:
+          HEROKU_API_KEY: ${{secrets.HEROKU_API_KEY_TEST}}
+          HEROKU_APP: wutsi-rtm-server-test
+          API_KEY: ${{secrets.API_KEY_TEST}}
+          CLOUDAMQP_URL: ${{secrets.CLOUDAMQP_URL_TEST}}
+          LOG4J_SLACK_WEBHOOK_URL: ${{secrets.LOG4J_SLACK_WEBHOOK_URL_TEST}}
+          BITLY_ACCESS_TOKEN: ${{secrets.BITLY_ACCESS_TOKEN_TEST}}
+          SMTP_USER: ${{secrets.SMTP_USER_TEST}}
+          SMTP_PASSWORD: ${{secrets.SMTP_PASSWORD_TEST}}
+          SMTP_HOST: ${{secrets.SMTP_HOST_TEST}}
+          SMTP_PORT: ${{secrets.SMTP_PORT_TEST}}
+          WHATSAPP_ACCESS_TOKEN: ${{secrets.WHATSAPP_ACCESS_TOKEN_TEST}}
+          WHATSAPP_PHONE_ID: ${{secrets.WHATSAPP_PHONE_ID_TEST}}
+          FIREBASE_CREDENTIALS: ${{secrets.FIREBASE_CREDENTIALS_TEST}}
+        run: |
+          heroku apps | grep ${HEROKU_APP} && echo 'app: ${HEROKU_APP} exists' ||  heroku apps:create ${HEROKU_APP}
+          heroku buildpacks:clear --app ${HEROKU_APP}
+          heroku buildpacks:add heroku/jvm --app ${HEROKU_APP}
+          heroku config:set --app ${HEROKU_APP} APP_PROFILE=test
+          heroku config:set --app ${HEROKU_APP} API_KEY=${API_KEY}
+          heroku config:set --app ${HEROKU_APP} CLOUDAMQP_URL=${CLOUDAMQP_URL}
+          heroku config:set --app ${HEROKU_APP} LOG4J_SLACK_WEBHOOK_URL=${LOG4J_SLACK_WEBHOOK_URL}
+          heroku config:set --app ${HEROKU_APP} BITLY_ACCESS_TOKEN=${BITLY_ACCESS_TOKEN}
+          heroku config:set --app ${HEROKU_APP} SMTP_USER=${SMTP_USER}
+          heroku config:set --app ${HEROKU_APP} SMTP_PASSWORD=${SMTP_PASSWORD}
+          heroku config:set --app ${HEROKU_APP} SMTP_HOST=${SMTP_HOST}
+          heroku config:set --app ${HEROKU_APP} SMTP_PORT=${SMTP_PORT}
+          heroku config:set --app ${HEROKU_APP} WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+          heroku config:set --app ${HEROKU_APP} WHATSAPP_PHONE_ID=${WHATSAPP_PHONE_ID}
+          heroku config:set --app ${HEROKU_APP} FIREBASE_CREDENTIALS="${FIREBASE_CREDENTIALS}"
+          heroku addons -a ${HEROKU_APP} | grep papertrail && echo 'addon: papertrail exists' ||  heroku addons:create papertrail -a ${HEROKU_APP}
+          heroku deploy:jar wutsi-rtm-server.jar --app ${HEROKU_APP}
+
+      - name: Health check
+        env:
+          HEROKU_APP: wutsi-rtm-server-test
+        run: |
+          sleep 90
+          curl -sSf https://${HEROKU_APP}.herokuapp.com/actuator/health >> /dev/null
+
+      - name: Notification
+        uses: rtCamp/action-slack-notify@v2
+        if: ${{always()}}
+        env:
+          SLACK_COLOR: ${{job.status}}
+          SLACK_TITLE: wutsi-rtm-server-test
+          SLACK_MESSAGE: Heroku Deployment in TEST
+          MSG_MINIMAL: true
+          SLACK_WEBHOOK: ${{secrets.SLACK_WEBHOOK_URL}}
+
+
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: [ deploy-test ]
+    steps:
+      - uses: actions/checkout@v3
+      - name: JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 11
+
+      - name: Get artigact
+        uses: actions/download-artifact@v3
+        with:
+          name: appbundle
+
+      - name: Install Heroku CLI
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+          heroku plugins:install @heroku-cli/plugin-java
+
+      - name: Heroku-Deploy-Prod
+        env:
+          HEROKU_API_KEY: ${{secrets.HEROKU_API_KEY_PROD}}
+          HEROKU_APP: wutsi-rtm-server-prod
+          API_KEY: ${{secrets.API_KEY_PROD}}
+          CLOUDAMQP_URL: ${{secrets.CLOUDAMQP_URL_PROD}}
+          LOG4J_SLACK_WEBHOOK_URL: ${{secrets.LOG4J_SLACK_WEBHOOK_URL_PROD}}
+          BITLY_ACCESS_TOKEN: ${{secrets.BITLY_ACCESS_TOKEN_PROD}}
+          SMTP_USER: ${{secrets.SMTP_USER_PROD}}
+          SMTP_PASSWORD: ${{secrets.SMTP_PASSWORD_PROD}}
+          SMTP_HOST: ${{secrets.SMTP_HOST_PROD}}
+          SMTP_PORT: ${{secrets.SMTP_PORT_PROD}}
+          WHATSAPP_ACCESS_TOKEN: ${{secrets.WHATSAPP_ACCESS_TOKEN_PROD}}
+          WHATSAPP_PHONE_ID: ${{secrets.WHATSAPP_PHONE_ID_PROD}}
+          FIREBASE_CREDENTIALS: ${{secrets.FIREBASE_CREDENTIALS_PROD}}
+        run: |
+          heroku apps | grep ${HEROKU_APP} && echo 'app: ${HEROKU_APP} exists' ||  heroku apps:create ${HEROKU_APP}
+          heroku buildpacks:clear --app ${HEROKU_APP}
+          heroku buildpacks:add heroku/jvm --app ${HEROKU_APP}
+          heroku config:set --app ${HEROKU_APP} APP_PROFILE=prod
+          heroku config:set --app ${HEROKU_APP} API_KEY=${API_KEY}
+          heroku config:set --app ${HEROKU_APP} CLOUDAMQP_URL=${CLOUDAMQP_URL}
+          heroku config:set --app ${HEROKU_APP} LOG4J_SLACK_WEBHOOK_URL=${LOG4J_SLACK_WEBHOOK_URL}
+          heroku config:set --app ${HEROKU_APP} BITLY_ACCESS_TOKEN=${BITLY_ACCESS_TOKEN}
+          heroku config:set --app ${HEROKU_APP} SMTP_USER=${SMTP_USER}
+          heroku config:set --app ${HEROKU_APP} SMTP_PASSWORD=${SMTP_PASSWORD}
+          heroku config:set --app ${HEROKU_APP} SMTP_HOST=${SMTP_HOST}
+          heroku config:set --app ${HEROKU_APP} SMTP_PORT=${SMTP_PORT}
+          heroku config:set --app ${HEROKU_APP} WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+          heroku config:set --app ${HEROKU_APP} WHATSAPP_PHONE_ID=${WHATSAPP_PHONE_ID}
+          heroku config:set --app ${HEROKU_APP} FIREBASE_CREDENTIALS="${FIREBASE_CREDENTIALS}"
+          heroku addons -a ${HEROKU_APP} | grep papertrail && echo 'addon: papertrail exists' ||  heroku addons:create papertrail -a ${HEROKU_APP}
+          heroku deploy:jar wutsi-rtm-server.jar --app ${HEROKU_APP}
+
+      - name: Health check
+        env:
+          HEROKU_APP: wutsi-rtm-server-prod
+        run: |
+          sleep 90
+          curl -sSf https://${HEROKU_APP}.herokuapp.com/actuator/health >> /dev/null
+
+      - name: Notification
+        uses: rtCamp/action-slack-notify@v2
+        if: ${{always()}}
+        env:
+          SLACK_COLOR: ${{job.status}}
+          SLACK_TITLE: wutsi-rtm-server-prod
+          SLACK_MESSAGE: Heroku Deployment in PROD
+          MSG_MINIMAL: true
+          SLACK_WEBHOOK: ${{secrets.SLACK_WEBHOOK_URL}}
+
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [ deploy-test, deploy-prod ]
+    if: ${{always()}}
+    steps:
+      - uses: geekyeggo/delete-artifact@v1
+        with:
+          name: appbundle

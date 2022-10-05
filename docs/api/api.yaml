@@ -1,0 +1,20 @@
+openapi: "3.0.0"
+info:
+  title: "Wutsi Chat Real Time Messaging API"
+  description: API for chat
+  version: "1.0.0"
+
+servers:
+  - url: https://wutsi-rtm-server-test.herokuapp.com
+    description: Sandbox
+  - url: https://wutsi-rtm-server-prod.herokuapp.com
+    description: Production
+
+paths:
+  /v1/hello:
+    get:
+      operationId: "hello"
+      responses:
+        200:
+          description: Success
+

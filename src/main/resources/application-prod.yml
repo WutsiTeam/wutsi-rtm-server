@@ -1,0 +1,29 @@
+wutsi:
+  client-id: wutsi-rtm
+  platform:
+    security:
+      type: jwt
+      api-key: ${API_KEY}
+    messaging:
+      sms:
+        type: aws
+        aws:
+          region: us-east-1
+      push:
+        type: firebase
+        firebase:
+          credentials: ${FIREBASE_CREDENTIALS}
+      url-shortener:
+        type: bitly
+        bitly:
+          access-token: ${BITLY_ACCESS_TOKEN}
+      whatsapp:
+        type: cloud
+        cloud:
+          access-token: ${WHATSAPP_ACCESS_TOKEN}
+          phone-id: ${WHATSAPP_PHONE_ID}
+    stream:
+      type: rabbitmq
+      rabbitmq:
+        url: ${CLOUDAMQP_URL}
+
