@@ -41,7 +41,7 @@ wutsi:
   platform:
     security:
       type: none
-      api-key: "---- API KEY ---"
+      api-key: "e3a82c9a-44f6-11ed-8d80-169285b9809d"
     cache:
       name: ${wutsi.application.name}
       type: local
