@@ -6,5 +6,6 @@ data class Message(
     val type: MessageType = MessageType.unknown,
     val roomId: String = "",
     val sessionId: String? = null,
+    val userId: String? = null,
     val chatMessage: ChatMessage? = null
 )

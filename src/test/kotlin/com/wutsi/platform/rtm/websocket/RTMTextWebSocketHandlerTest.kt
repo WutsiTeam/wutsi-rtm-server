@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.argumentCaptor
 import com.nhaarman.mockitokotlin2.doReturn
+import com.nhaarman.mockitokotlin2.doThrow
 import com.nhaarman.mockitokotlin2.eq
 import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.never
 import com.nhaarman.mockitokotlin2.verify
 import com.nhaarman.mockitokotlin2.whenever
 import com.wutsi.platform.rtm.dto.Message
@@ -44,6 +46,7 @@ internal class RTMTextWebSocketHandlerTest {
 
     @Test
     fun handleMessage() {
+        // GIVEN
         val msg = Message(
             type = MessageType.send,
             sessionId = "1111",
@@ -55,11 +58,36 @@ internal class RTMTextWebSocketHandlerTest {
         val payload = objectMapper.writeValueAsString(msg)
         handler.handleMessage(session, TextMessage(payload))
 
+        // THEN
         val message = argumentCaptor<Message>()
         verify(processor).process(message.capture(), eq(session))
         assertEquals(msg.type, message.firstValue.type)
         assertEquals(msg.sessionId, message.firstValue.sessionId)
         assertEquals(msg.roomId, message.firstValue.roomId)
         assertEquals(msg.chatMessage?.id, message.firstValue.chatMessage?.id)
+    }
+
+    @Test
+    fun malformedJson() {
+        handler.handleMessage(session, TextMessage("Yo man"))
+        verify(processor, never()).process(any(), any())
+    }
+
+    @Test
+    fun processorError() {
+        // GIVEN
+        doThrow(RuntimeException::class).whenever(processor).process(any(), any())
+
+        // WHEN
+        val msg = Message(
+            type = MessageType.send,
+            sessionId = "1111",
+            roomId = "123",
+            chatMessage = ChatMessage(
+                id = UUID.randomUUID().toString()
+            )
+        )
+        val payload = objectMapper.writeValueAsString(msg)
+        handler.handleMessage(session, TextMessage(payload))
     }
 }

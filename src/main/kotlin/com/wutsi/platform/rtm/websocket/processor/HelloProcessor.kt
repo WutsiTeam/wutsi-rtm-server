@@ -11,7 +11,7 @@ class HelloProcessor(
 ) : AbstractMessageProcessor() {
     override fun process(message: Message, session: WebSocketSession) {
         val sessionId = session.id
-        context.attach(message.roomId, session)
+        context.attach(message.roomId, message.userId, session)
 
         val response = Message(
             type = message.type,

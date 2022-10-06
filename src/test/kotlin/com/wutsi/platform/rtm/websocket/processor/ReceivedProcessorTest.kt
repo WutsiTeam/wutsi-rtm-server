@@ -1,21 +1,21 @@
 package com.wutsi.platform.rtm.websocket.processor
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.argumentCaptor
 import com.nhaarman.mockitokotlin2.doReturn
-import com.nhaarman.mockitokotlin2.eq
 import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.never
 import com.nhaarman.mockitokotlin2.verify
 import com.nhaarman.mockitokotlin2.whenever
 import com.wutsi.platform.core.stream.EventStream
 import com.wutsi.platform.rtm.dto.Message
 import com.wutsi.platform.rtm.dto.MessageType
-import com.wutsi.platform.rtm.event.EventURN
-import com.wutsi.platform.rtm.event.MessageSentEventPayload
 import com.wutsi.platform.rtm.model.ChatMessage
 import com.wutsi.platform.rtm.model.ChatMessageType
 import com.wutsi.platform.rtm.model.ChatUser
 import com.wutsi.platform.rtm.websocket.RTMContext
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,12 +24,11 @@ import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import java.util.UUID
-import kotlin.test.assertEquals
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-internal class SendProcessorTest {
+internal class ReceivedProcessorTest {
     @Autowired
-    private lateinit var processor: SendProcessor
+    private lateinit var processor: ReceivedProcessor
 
     @Autowired
     private lateinit var context: RTMContext
@@ -73,9 +72,10 @@ internal class SendProcessorTest {
     @Test
     fun process() {
         val msg = Message(
-            type = MessageType.send,
+            type = MessageType.received,
             roomId = roomId,
             sessionId = sessionId1,
+            userId = userId1,
             chatMessage = ChatMessage(
                 id = UUID.randomUUID().toString(),
                 roomId = roomId,
@@ -86,25 +86,16 @@ internal class SendProcessorTest {
                 text = "Hello world"
             )
         )
-        processor.process(msg, session1)
+        processor.process(msg, session2)
 
         val result = argumentCaptor<TextMessage>()
-        verify(session2).sendMessage(result.capture())
-        val payload2 = ObjectMapper().readValue(result.firstValue.payload, Message::class.java)
-        assertEquals(sessionId2, payload2.sessionId)
-        assertEquals(msg.chatMessage?.id, payload2.chatMessage?.id)
-        assertEquals(msg.chatMessage?.text, payload2.chatMessage?.text)
+        verify(session1).sendMessage(result.capture())
+        val payload1 = ObjectMapper().readValue(result.firstValue.payload, Message::class.java)
+        assertEquals(sessionId1, payload1.sessionId)
+        assertEquals(msg.chatMessage?.id, payload1.chatMessage?.id)
 
-        verify(session3).sendMessage(result.capture())
-        val payload3 = ObjectMapper().readValue(result.secondValue.payload, Message::class.java)
-        assertEquals(sessionId3, payload3.sessionId)
-        assertEquals(msg.chatMessage?.id, payload3.chatMessage?.id)
-        assertEquals(msg.chatMessage?.text, payload3.chatMessage?.text)
+        verify(session3, never()).sendMessage(any())
 
-        val payload = argumentCaptor<MessageSentEventPayload>()
-        verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
-        assertEquals(context.serverId, payload.firstValue.serverId)
-        assertEquals(sessionId1, payload.firstValue.sessionId)
-        assertEquals(msg.chatMessage, payload.firstValue.chatMessage)
+        verify(eventStream, never()).publish(any(), any())
     }
 }

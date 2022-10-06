@@ -11,8 +11,9 @@ class RTMContext(
 ) {
     private val sessions: MutableList<WebSocketSession> = Collections.synchronizedList(mutableListOf())
 
-    fun attach(roomId: String, session: WebSocketSession) {
+    fun attach(roomId: String, userId: String?, session: WebSocketSession) {
         session.attributes["roomId"] = roomId
+        userId?.let { session.attributes["userId"] = it }
         sessions.add(session)
     }
 
@@ -20,6 +21,9 @@ class RTMContext(
         sessions.remove(session)
     }
 
-    fun findSessionByRoom(roomId: String): List<WebSocketSession> =
+    fun findSessionsByRoom(roomId: String): List<WebSocketSession> =
         sessions.filter { it.attributes["roomId"] == roomId }
+
+    fun findSessionsByUser(userId: String): List<WebSocketSession> =
+        sessions.filter { it.attributes["userId"] == userId }
 }

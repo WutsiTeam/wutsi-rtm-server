@@ -4,5 +4,6 @@ enum class MessageType {
     unknown,
     hello,
     send,
-    bye
+    bye,
+    received
 }

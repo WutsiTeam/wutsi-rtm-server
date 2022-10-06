@@ -28,7 +28,7 @@ class SendProcessor(
         eventStream.publish(EventURN.MESSAGE_SENT.urn, payload)
 
         // Broadcast message to other participants in the room
-        val sessions = context.findSessionByRoom(message.roomId)
+        val sessions = context.findSessionsByRoom(message.roomId)
         sessions.forEach {
             if (it.id != session.id) {
                 try {

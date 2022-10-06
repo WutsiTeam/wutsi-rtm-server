@@ -3,6 +3,7 @@ package com.wutsi.platform.rtm.websocket
 import com.wutsi.platform.rtm.dto.MessageType
 import com.wutsi.platform.rtm.websocket.processor.ByeProcessor
 import com.wutsi.platform.rtm.websocket.processor.HelloProcessor
+import com.wutsi.platform.rtm.websocket.processor.ReceivedProcessor
 import com.wutsi.platform.rtm.websocket.processor.SendProcessor
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -20,6 +21,7 @@ internal class MessageProcessorFactoryTest {
         assertTrue(factory.get(MessageType.hello) is HelloProcessor)
         assertTrue(factory.get(MessageType.send) is SendProcessor)
         assertTrue(factory.get(MessageType.bye) is ByeProcessor)
+        assertTrue(factory.get(MessageType.received) is ReceivedProcessor)
     }
 
     @Test
