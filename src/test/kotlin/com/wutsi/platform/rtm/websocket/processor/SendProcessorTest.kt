@@ -1,10 +1,13 @@
 package com.wutsi.platform.rtm.websocket.processor
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.argumentCaptor
 import com.nhaarman.mockitokotlin2.doReturn
+import com.nhaarman.mockitokotlin2.doThrow
 import com.nhaarman.mockitokotlin2.eq
 import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.never
 import com.nhaarman.mockitokotlin2.verify
 import com.nhaarman.mockitokotlin2.whenever
 import com.wutsi.platform.core.stream.EventStream
@@ -25,6 +28,7 @@ import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 internal class SendProcessorTest {
@@ -52,6 +56,21 @@ internal class SendProcessorTest {
     private val attributes2 = mutableMapOf<String, Any>()
     private val attributes3 = mutableMapOf<String, Any>()
 
+    private val msg = Message(
+        type = MessageType.send,
+        roomId = roomId,
+        sessionId = sessionId1,
+        chatMessage = ChatMessage(
+            id = UUID.randomUUID().toString(),
+            roomId = roomId,
+            type = ChatMessageType.text,
+            author = ChatUser(
+                id = userId1
+            ),
+            text = "Hello world"
+        )
+    )
+
     @BeforeEach
     fun setUp() {
         session1 = mock()
@@ -72,21 +91,9 @@ internal class SendProcessorTest {
 
     @Test
     fun process() {
-        val msg = Message(
-            type = MessageType.send,
-            roomId = roomId,
-            sessionId = sessionId1,
-            chatMessage = ChatMessage(
-                id = UUID.randomUUID().toString(),
-                roomId = roomId,
-                type = ChatMessageType.text,
-                author = ChatUser(
-                    id = userId1
-                ),
-                text = "Hello world"
-            )
-        )
         processor.process(msg, session1)
+
+        verify(session1, never()).sendMessage(any())
 
         val result = argumentCaptor<TextMessage>()
         verify(session2).sendMessage(result.capture())
@@ -106,5 +113,35 @@ internal class SendProcessorTest {
         assertEquals(context.serverId, payload.firstValue.serverId)
         assertEquals(sessionId1, payload.firstValue.sessionId)
         assertEquals(msg.chatMessage, payload.firstValue.chatMessage)
+    }
+
+    @Test
+    fun closedSession() {
+        doThrow(IllegalStateException::class).whenever(session2).sendMessage(any())
+
+        processor.process(msg, session1)
+
+        assertFalse(context.sessions.contains(session2))
+
+        verify(session1, never()).sendMessage(any())
+        verify(session2).sendMessage(any())
+        verify(session3).sendMessage(any())
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
+    }
+
+    @Test
+    fun exception() {
+        doThrow(RuntimeException::class).whenever(session2).sendMessage(any())
+
+        processor.process(msg, session1)
+
+        verify(session1, never()).sendMessage(any())
+        verify(session2).sendMessage(any())
+        verify(session3).sendMessage(any())
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
     }
 }

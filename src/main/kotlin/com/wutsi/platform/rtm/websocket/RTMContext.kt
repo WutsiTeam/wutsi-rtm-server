@@ -7,10 +7,9 @@ import java.util.UUID
 
 @Service
 class RTMContext(
-    val serverId: String = UUID.randomUUID().toString()
+    val serverId: String = UUID.randomUUID().toString(),
+    val sessions: MutableList<WebSocketSession> = Collections.synchronizedList(mutableListOf())
 ) {
-    private val sessions: MutableList<WebSocketSession> = Collections.synchronizedList(mutableListOf())
-
     fun attach(roomId: String, userId: String?, session: WebSocketSession) {
         session.attributes["roomId"] = roomId
         userId?.let { session.attributes["userId"] = it }

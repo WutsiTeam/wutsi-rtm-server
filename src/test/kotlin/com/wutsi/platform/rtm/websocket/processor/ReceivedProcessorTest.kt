@@ -4,11 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.argumentCaptor
 import com.nhaarman.mockitokotlin2.doReturn
+import com.nhaarman.mockitokotlin2.doThrow
 import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.never
 import com.nhaarman.mockitokotlin2.verify
 import com.nhaarman.mockitokotlin2.whenever
-import com.wutsi.platform.core.stream.EventStream
 import com.wutsi.platform.rtm.dto.Message
 import com.wutsi.platform.rtm.dto.MessageType
 import com.wutsi.platform.rtm.model.ChatMessage
@@ -20,10 +20,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import java.util.UUID
+import kotlin.test.assertFalse
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 internal class ReceivedProcessorTest {
@@ -32,9 +32,6 @@ internal class ReceivedProcessorTest {
 
     @Autowired
     private lateinit var context: RTMContext
-
-    @MockBean
-    private lateinit var eventStream: EventStream
 
     private lateinit var session1: WebSocketSession
     private lateinit var session2: WebSocketSession
@@ -50,6 +47,22 @@ internal class ReceivedProcessorTest {
     private val attributes1 = mutableMapOf<String, Any>()
     private val attributes2 = mutableMapOf<String, Any>()
     private val attributes3 = mutableMapOf<String, Any>()
+
+    private val msg = Message(
+        type = MessageType.received,
+        roomId = roomId,
+        sessionId = sessionId1,
+        userId = userId1,
+        chatMessage = ChatMessage(
+            id = UUID.randomUUID().toString(),
+            roomId = roomId,
+            type = ChatMessageType.text,
+            author = ChatUser(
+                id = userId1
+            ),
+            text = "Hello world"
+        )
+    )
 
     @BeforeEach
     fun setUp() {
@@ -71,21 +84,6 @@ internal class ReceivedProcessorTest {
 
     @Test
     fun process() {
-        val msg = Message(
-            type = MessageType.received,
-            roomId = roomId,
-            sessionId = sessionId1,
-            userId = userId1,
-            chatMessage = ChatMessage(
-                id = UUID.randomUUID().toString(),
-                roomId = roomId,
-                type = ChatMessageType.text,
-                author = ChatUser(
-                    id = userId1
-                ),
-                text = "Hello world"
-            )
-        )
         processor.process(msg, session2)
 
         val result = argumentCaptor<TextMessage>()
@@ -95,7 +93,30 @@ internal class ReceivedProcessorTest {
         assertEquals(msg.chatMessage?.id, payload1.chatMessage?.id)
 
         verify(session3, never()).sendMessage(any())
+        verify(session2, never()).sendMessage(any())
+    }
 
-        verify(eventStream, never()).publish(any(), any())
+    @Test
+    fun closedSession() {
+        doThrow(IllegalStateException::class).whenever(session1).sendMessage(any())
+
+        processor.process(msg, session1)
+
+        assertFalse(context.sessions.contains(session1))
+
+        verify(session1).sendMessage(any())
+        verify(session2, never()).sendMessage(any())
+        verify(session3, never()).sendMessage(any())
+    }
+
+    @Test
+    fun exception() {
+        doThrow(RuntimeException::class).whenever(session1).sendMessage(any())
+
+        processor.process(msg, session1)
+
+        verify(session1).sendMessage(any())
+        verify(session2, never()).sendMessage(any())
+        verify(session3, never()).sendMessage(any())
     }
 }
