@@ -1,6 +1,5 @@
 package com.wutsi.platform.rtm.websocket.processor
 
-import com.wutsi.platform.core.logging.KVLogger
 import com.wutsi.platform.core.stream.EventStream
 import com.wutsi.platform.rtm.dto.Message
 import com.wutsi.platform.rtm.event.EventURN
@@ -13,7 +12,6 @@ import org.springframework.web.socket.WebSocketSession
 @Service
 class SendProcessor(
     private val context: RTMContext,
-    private val logger: KVLogger,
     private val eventStream: EventStream
 ) : AbstractMessageProcessor() {
     companion object {
@@ -31,11 +29,13 @@ class SendProcessor(
 
         // Broadcast message to other participants in the room
         val sessions = context.findSessionByRoom(message.roomId)
-        logger.add("session_ids", sessions.map { it.id })
         sessions.forEach {
             if (it.id != session.id) {
                 try {
                     sendMessage(message.copy(sessionId = it.id), it)
+                } catch (ex: IllegalStateException) {
+                    LOGGER.warn("Session#${it.id} is closed. detaching from context", ex)
+                    context.detach(session)
                 } catch (ex: Exception) {
                     LOGGER.warn("Unable to send message to Session#${it.id}", ex)
                 }
