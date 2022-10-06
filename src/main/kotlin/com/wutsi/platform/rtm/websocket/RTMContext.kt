@@ -3,9 +3,12 @@ package com.wutsi.platform.rtm.websocket
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.WebSocketSession
 import java.util.Collections
+import java.util.UUID
 
 @Service
-class RTMContext {
+class RTMContext(
+    val serverId: String = UUID.randomUUID().toString()
+) {
     private val sessions: MutableList<WebSocketSession> = Collections.synchronizedList(mutableListOf())
 
     fun attach(roomId: String, session: WebSocketSession) {

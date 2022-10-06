@@ -23,6 +23,7 @@ class SendProcessor(
     override fun process(message: Message, session: WebSocketSession) {
         // Push to the queue for persistence
         val payload = MessageSentEventPayload(
+            serverId = context.serverId,
             sessionId = session.id,
             chatMessage = message.chatMessage
         )

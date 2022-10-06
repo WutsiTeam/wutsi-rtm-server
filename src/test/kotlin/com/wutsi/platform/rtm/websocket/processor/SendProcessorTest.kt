@@ -101,6 +101,7 @@ internal class SendProcessorTest {
 
         val payload = argumentCaptor<MessageSentEventPayload>()
         verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
+        assertEquals(context.serverId, payload.firstValue.serverId)
         assertEquals(sessionId1, payload.firstValue.sessionId)
         assertEquals(msg.chatMessage, payload.firstValue.chatMessage)
     }
