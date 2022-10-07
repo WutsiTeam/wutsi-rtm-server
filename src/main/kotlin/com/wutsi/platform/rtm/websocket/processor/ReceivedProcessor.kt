@@ -15,7 +15,10 @@ class ReceivedProcessor : AbstractMessageProcessor() {
         message.userId ?: return
 
         // Notify the sender
-        val sessions = context.findSessionsByUser(message.userId)
+        val senderId = message.chatMessage?.author?.id
+            ?: return
+
+        val sessions = context.findSessionsByUser(senderId)
         sessions.forEach {
             try {
                 sendMessage(message, it)

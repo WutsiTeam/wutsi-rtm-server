@@ -58,7 +58,7 @@ internal class ReceivedProcessorTest {
             roomId = roomId,
             type = ChatMessageType.text,
             author = ChatUser(
-                id = userId1
+                id = userId2
             ),
             text = "Hello world"
         )
@@ -86,26 +86,26 @@ internal class ReceivedProcessorTest {
     fun process() {
         processor.process(msg, session2)
 
+        verify(session1, never()).sendMessage(any())
+
         val result = argumentCaptor<TextMessage>()
-        verify(session1).sendMessage(result.capture())
-        val payload1 = ObjectMapper().readValue(result.firstValue.payload, Message::class.java)
-        assertEquals(sessionId1, payload1.sessionId)
-        assertEquals(msg.chatMessage?.id, payload1.chatMessage?.id)
+        verify(session2).sendMessage(result.capture())
+        val payload2 = ObjectMapper().readValue(result.firstValue.payload, Message::class.java)
+        assertEquals(msg.chatMessage?.id, payload2.chatMessage?.id)
 
         verify(session3, never()).sendMessage(any())
-        verify(session2, never()).sendMessage(any())
     }
 
     @Test
     fun closedSession() {
-        doThrow(IllegalStateException::class).whenever(session1).sendMessage(any())
+        doThrow(IllegalStateException::class).whenever(session2).sendMessage(any())
 
         processor.process(msg, session1)
 
-        assertFalse(context.sessions.contains(session1))
+        assertFalse(context.sessions.contains(session2))
 
-        verify(session1).sendMessage(any())
-        verify(session2, never()).sendMessage(any())
+        verify(session1, never()).sendMessage(any())
+        verify(session2).sendMessage(any())
         verify(session3, never()).sendMessage(any())
     }
 
@@ -115,8 +115,8 @@ internal class ReceivedProcessorTest {
 
         processor.process(msg, session1)
 
-        verify(session1).sendMessage(any())
-        verify(session2, never()).sendMessage(any())
+        verify(session1, never()).sendMessage(any())
+        verify(session2).sendMessage(any())
         verify(session3, never()).sendMessage(any())
     }
 }
