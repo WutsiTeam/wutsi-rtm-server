@@ -10,6 +10,11 @@ class RTMContext(
     val serverId: String = UUID.randomUUID().toString(),
     val sessions: MutableList<WebSocketSession> = Collections.synchronizedList(mutableListOf())
 ) {
+    companion object {
+        const val KEY_USER_ID = "userId"
+        const val KEY_ROOM_ID = "roomId"
+    }
+
     fun attach(roomId: String, userId: String?, session: WebSocketSession) {
         session.attributes["roomId"] = roomId
         userId?.let { session.attributes["userId"] = it }
@@ -21,8 +26,11 @@ class RTMContext(
     }
 
     fun findSessionsByRoom(roomId: String): List<WebSocketSession> =
-        sessions.filter { it.attributes["roomId"] == roomId }
+        sessions.filter { it.attributes[KEY_ROOM_ID] == roomId }
 
     fun findSessionsByUser(userId: String): List<WebSocketSession> =
-        sessions.filter { it.attributes["userId"] == userId }
+        sessions.filter { it.attributes[KEY_USER_ID] == userId }
+
+    fun getUserId(session: WebSocketSession): String? =
+        session.attributes[KEY_USER_ID]?.toString()
 }

@@ -31,6 +31,7 @@ class SendProcessor(
             if (it.id != session.id) {
                 try {
                     sendMessage(message.copy(sessionId = it.id), it)
+                    LOGGER.info("Message sent to User#" + context.getUserId(it))
                 } catch (ex: Exception) {
                     LOGGER.warn("Unable to send message to Session#${it.id}", ex)
                 }

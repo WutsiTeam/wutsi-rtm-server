@@ -22,8 +22,9 @@ class ReceivedProcessor : AbstractMessageProcessor() {
         sessions.forEach {
             try {
                 sendMessage(message, it)
+                LOGGER.info("Message sent to User#$senderId")
             } catch (ex: Exception) {
-                LOGGER.warn("Unable to send message to Session#${it.id}", ex)
+                LOGGER.warn("Unable to send message to User#$senderId", ex)
             }
         }
     }
