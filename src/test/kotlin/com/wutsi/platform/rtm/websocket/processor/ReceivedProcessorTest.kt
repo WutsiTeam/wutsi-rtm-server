@@ -5,12 +5,17 @@ import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.argumentCaptor
 import com.nhaarman.mockitokotlin2.doReturn
 import com.nhaarman.mockitokotlin2.doThrow
+import com.nhaarman.mockitokotlin2.eq
 import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.never
 import com.nhaarman.mockitokotlin2.verify
 import com.nhaarman.mockitokotlin2.whenever
+import com.wutsi.platform.core.stream.EventStream
 import com.wutsi.platform.rtm.dto.Message
 import com.wutsi.platform.rtm.dto.MessageType
+import com.wutsi.platform.rtm.event.EventURN
+import com.wutsi.platform.rtm.event.MessageReceivedEventPayload
+import com.wutsi.platform.rtm.event.MessageSentEventPayload
 import com.wutsi.platform.rtm.model.ChatMessage
 import com.wutsi.platform.rtm.model.ChatMessageType
 import com.wutsi.platform.rtm.model.ChatUser
@@ -20,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import java.util.UUID
@@ -32,6 +38,9 @@ internal class ReceivedProcessorTest {
 
     @Autowired
     private lateinit var context: RTMContext
+
+    @MockBean
+    private lateinit var eventStream: EventStream
 
     private lateinit var session1: WebSocketSession
     private lateinit var session2: WebSocketSession
@@ -94,6 +103,12 @@ internal class ReceivedProcessorTest {
         assertEquals(msg.chatMessage?.id, payload2.chatMessage?.id)
 
         verify(session3, never()).sendMessage(any())
+
+        val payload = argumentCaptor<MessageReceivedEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_RECEIVED.urn), payload.capture())
+        kotlin.test.assertEquals(context.serverId, payload.firstValue.serverId)
+        kotlin.test.assertEquals(sessionId2, payload.firstValue.sessionId)
+        kotlin.test.assertEquals(msg.chatMessage?.id, payload.firstValue.chatMessageId)
     }
 
     @Test
@@ -107,6 +122,9 @@ internal class ReceivedProcessorTest {
         verify(session1, never()).sendMessage(any())
         verify(session2).sendMessage(any())
         verify(session3, never()).sendMessage(any())
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_RECEIVED.urn), payload.capture())
     }
 
     @Test
@@ -118,5 +136,8 @@ internal class ReceivedProcessorTest {
         verify(session1, never()).sendMessage(any())
         verify(session2).sendMessage(any())
         verify(session3, never()).sendMessage(any())
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_RECEIVED.urn), payload.capture())
     }
 }
