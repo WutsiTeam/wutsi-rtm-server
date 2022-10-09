@@ -29,7 +29,7 @@ class PushNotificationService(
                     deviceToken = recipient.fcmToken
                 ),
                 mimeType = "text/plain",
-                body = "${message.author.firstName} ${message.author.lastName}: ${message.text}",
+                body = "${message.author.firstName} ${message.author.lastName}: ${message.text}"
             )
         )
         logger.add("fcm_message_id", messageId)
