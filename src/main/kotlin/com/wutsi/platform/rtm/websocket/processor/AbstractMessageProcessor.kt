@@ -15,13 +15,15 @@ abstract class AbstractMessageProcessor : MessageProcessor {
     @Autowired
     protected lateinit var context: RTMContext
 
-    protected fun sendMessage(payload: Any, session: WebSocketSession) {
+    protected fun sendMessage(payload: Any, session: WebSocketSession): Boolean {
         try {
             val json = objectMapper.writeValueAsString(payload)
             session.sendMessage(TextMessage(json))
+            return true
         } catch (ex: IllegalStateException) {
             LoggerFactory.getLogger(this::class.java).warn("Session#${session.id} is closed.", ex)
             context.detach(session)
+            return false
         }
     }
 }

@@ -33,11 +33,36 @@ spring:
       ACCEPT_CASE_INSENSITIVE_PROPERTIES: true
     default-property-inclusion: non_null
 
+  mail:
+    default-encoding: UTF-8
+    host: localhost
+    port: 2525
+    username: username
+    password: secret
+    properties:
+      mail:
+        debug: true
+        smtp:
+          from: no-reply@wutsi.com
+          auth: true
+          starttls:
+            enable: true
+    test-connection: false
+
 wutsi:
   client-id: wutsi-rtm
   application:
     name: wutsi-rtm
   platform:
+    messaging:
+      sms:
+        type: none
+      push:
+        type: none
+      url-shortener:
+        type: none
+      whatsapp:
+        type: none
     security:
       type: none
       api-key: "e3a82c9a-44f6-11ed-8d80-169285b9809d"

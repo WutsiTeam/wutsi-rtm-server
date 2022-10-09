@@ -18,6 +18,7 @@ import com.wutsi.platform.rtm.event.MessageSentEventPayload
 import com.wutsi.platform.rtm.model.ChatMessage
 import com.wutsi.platform.rtm.model.ChatMessageType
 import com.wutsi.platform.rtm.model.ChatUser
+import com.wutsi.platform.rtm.service.PushNotificationService
 import com.wutsi.platform.rtm.websocket.RTMContext
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -40,6 +41,9 @@ internal class SendProcessorTest {
 
     @MockBean
     private lateinit var eventStream: EventStream
+
+    @MockBean
+    private lateinit var pushNotificationService: PushNotificationService
 
     private lateinit var session1: WebSocketSession
     private lateinit var session2: WebSocketSession
@@ -102,11 +106,15 @@ internal class SendProcessorTest {
         assertEquals(msg.chatMessage?.id, payload2.chatMessage?.id)
         assertEquals(msg.chatMessage?.text, payload2.chatMessage?.text)
 
+        verify(pushNotificationService, never()).onMessageSent(any(), any())
+
         verify(session3).sendMessage(result.capture())
         val payload3 = ObjectMapper().readValue(result.secondValue.payload, Message::class.java)
         assertEquals(sessionId3, payload3.sessionId)
         assertEquals(msg.chatMessage?.id, payload3.chatMessage?.id)
         assertEquals(msg.chatMessage?.text, payload3.chatMessage?.text)
+
+        verify(pushNotificationService, never()).onMessageSent(any(), any())
 
         val payload = argumentCaptor<MessageSentEventPayload>()
         verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
@@ -124,8 +132,12 @@ internal class SendProcessorTest {
         assertFalse(context.sessions.contains(session2))
 
         verify(session1, never()).sendMessage(any())
+
         verify(session2).sendMessage(any())
+        verify(pushNotificationService).onMessageSent(any(), eq(userId2.toLong()))
+
         verify(session3).sendMessage(any())
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId3.toLong()))
 
         val payload = argumentCaptor<MessageSentEventPayload>()
         verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
@@ -138,8 +150,12 @@ internal class SendProcessorTest {
         processor.process(msg, session1)
 
         verify(session1, never()).sendMessage(any())
+
         verify(session2).sendMessage(any())
+        verify(pushNotificationService).onMessageSent(any(), eq(userId2.toLong()))
+
         verify(session3).sendMessage(any())
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId3.toLong()))
 
         val payload = argumentCaptor<MessageSentEventPayload>()
         verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())

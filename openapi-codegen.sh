@@ -19,6 +19,7 @@ java -jar ${CODEGEN_JAR} server \
     -service_api_key \
     -service_logger \
     -service_mqueue \
+    -service_messaging \
     -service_slack
 
 if [ $? -eq 0 ]
