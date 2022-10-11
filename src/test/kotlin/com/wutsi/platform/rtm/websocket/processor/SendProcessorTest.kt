@@ -27,7 +27,6 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
-import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
@@ -60,18 +59,36 @@ internal class SendProcessorTest {
     private val attributes2 = mutableMapOf<String, Any>()
     private val attributes3 = mutableMapOf<String, Any>()
 
-    private val msg = Message(
+    private val msgToRoom = Message(
         type = MessageType.send,
         roomId = roomId,
         sessionId = sessionId1,
         chatMessage = ChatMessage(
-            id = UUID.randomUUID().toString(),
+            id = "message-to-room",
             roomId = roomId,
             type = ChatMessageType.text,
             author = ChatUser(
                 id = userId1
             ),
             text = "Hello world"
+        )
+    )
+
+    private val msgToRecipient = Message(
+        type = MessageType.send,
+        roomId = roomId,
+        sessionId = sessionId1,
+        chatMessage = ChatMessage(
+            id = "message-to-recipient",
+            roomId = roomId,
+            type = ChatMessageType.text,
+            author = ChatUser(
+                id = userId1
+            ),
+            text = "Hello user2",
+            metadata = mapOf(
+                "recipientId" to userId2
+            )
         )
     )
 
@@ -94,8 +111,8 @@ internal class SendProcessorTest {
     }
 
     @Test
-    fun process() {
-        processor.process(msg, session1)
+    fun `send to recipient`() {
+        processor.process(msgToRecipient, session1)
 
         verify(session1, never()).sendMessage(any())
 
@@ -103,31 +120,95 @@ internal class SendProcessorTest {
         verify(session2).sendMessage(result.capture())
         val payload2 = ObjectMapper().readValue(result.firstValue.payload, Message::class.java)
         assertEquals(sessionId2, payload2.sessionId)
-        assertEquals(msg.chatMessage?.id, payload2.chatMessage?.id)
-        assertEquals(msg.chatMessage?.text, payload2.chatMessage?.text)
+        assertEquals(msgToRecipient.chatMessage?.id, payload2.chatMessage?.id)
+        assertEquals(msgToRecipient.chatMessage?.text, payload2.chatMessage?.text)
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId2.toLong()))
 
-        verify(pushNotificationService, never()).onMessageSent(any(), any())
-
-        verify(session3).sendMessage(result.capture())
-        val payload3 = ObjectMapper().readValue(result.secondValue.payload, Message::class.java)
-        assertEquals(sessionId3, payload3.sessionId)
-        assertEquals(msg.chatMessage?.id, payload3.chatMessage?.id)
-        assertEquals(msg.chatMessage?.text, payload3.chatMessage?.text)
-
-        verify(pushNotificationService, never()).onMessageSent(any(), any())
+        verify(session3, never()).sendMessage(any())
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId3.toLong()))
 
         val payload = argumentCaptor<MessageSentEventPayload>()
         verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
         assertEquals(context.serverId, payload.firstValue.serverId)
         assertEquals(sessionId1, payload.firstValue.sessionId)
-        assertEquals(msg.chatMessage, payload.firstValue.chatMessage)
+        assertEquals(msgToRecipient.chatMessage, payload.firstValue.chatMessage)
     }
 
     @Test
-    fun closedSession() {
+    fun `send to recipient - session2 closed`() {
         doThrow(IllegalStateException::class).whenever(session2).sendMessage(any())
 
-        processor.process(msg, session1)
+        processor.process(msgToRecipient, session1)
+
+        verify(session1, never()).sendMessage(any())
+
+        verify(session2).sendMessage(any())
+        verify(pushNotificationService).onMessageSent(eq(msgToRecipient.chatMessage!!), eq(userId2.toLong()))
+
+        verify(session3, never()).sendMessage(any())
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId3.toLong()))
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
+        assertEquals(context.serverId, payload.firstValue.serverId)
+        assertEquals(sessionId1, payload.firstValue.sessionId)
+        assertEquals(msgToRecipient.chatMessage, payload.firstValue.chatMessage)
+    }
+
+    @Test
+    fun `send to recipient - session2 failed`() {
+        doThrow(RuntimeException::class).whenever(session2).sendMessage(any())
+
+        processor.process(msgToRecipient, session1)
+
+        verify(session1, never()).sendMessage(any())
+
+        verify(session2).sendMessage(any())
+        verify(pushNotificationService).onMessageSent(eq(msgToRecipient.chatMessage!!), eq(userId2.toLong()))
+
+        verify(session3, never()).sendMessage(any())
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId3.toLong()))
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
+        assertEquals(context.serverId, payload.firstValue.serverId)
+        assertEquals(sessionId1, payload.firstValue.sessionId)
+        assertEquals(msgToRecipient.chatMessage, payload.firstValue.chatMessage)
+    }
+
+    @Test
+    fun `send to room`() {
+        processor.process(msgToRoom, session1)
+
+        verify(session1, never()).sendMessage(any())
+
+        val result = argumentCaptor<TextMessage>()
+        verify(session2).sendMessage(result.capture())
+        val payload2 = ObjectMapper().readValue(result.firstValue.payload, Message::class.java)
+        assertEquals(sessionId2, payload2.sessionId)
+        assertEquals(msgToRoom.chatMessage?.id, payload2.chatMessage?.id)
+        assertEquals(msgToRoom.chatMessage?.text, payload2.chatMessage?.text)
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId2.toLong()))
+
+        verify(session3).sendMessage(result.capture())
+        val payload3 = ObjectMapper().readValue(result.secondValue.payload, Message::class.java)
+        assertEquals(sessionId3, payload3.sessionId)
+        assertEquals(msgToRoom.chatMessage?.id, payload3.chatMessage?.id)
+        assertEquals(msgToRoom.chatMessage?.text, payload3.chatMessage?.text)
+        verify(pushNotificationService, never()).onMessageSent(any(), eq(userId3.toLong()))
+
+        val payload = argumentCaptor<MessageSentEventPayload>()
+        verify(eventStream).publish(eq(EventURN.MESSAGE_SENT.urn), payload.capture())
+        assertEquals(context.serverId, payload.firstValue.serverId)
+        assertEquals(sessionId1, payload.firstValue.sessionId)
+        assertEquals(msgToRoom.chatMessage, payload.firstValue.chatMessage)
+    }
+
+    @Test
+    fun `send to room - session2 closed`() {
+        doThrow(IllegalStateException::class).whenever(session2).sendMessage(any())
+
+        processor.process(msgToRoom, session1)
 
         assertFalse(context.sessions.contains(session2))
 
@@ -144,10 +225,10 @@ internal class SendProcessorTest {
     }
 
     @Test
-    fun exception() {
+    fun `send to room - session2 failed`() {
         doThrow(RuntimeException::class).whenever(session2).sendMessage(any())
 
-        processor.process(msg, session1)
+        processor.process(msgToRoom, session1)
 
         verify(session1, never()).sendMessage(any())
 

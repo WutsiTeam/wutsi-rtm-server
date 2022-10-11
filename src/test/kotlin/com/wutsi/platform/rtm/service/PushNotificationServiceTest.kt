@@ -68,7 +68,8 @@ internal class PushNotificationServiceTest {
         val request = argumentCaptor<com.wutsi.platform.core.messaging.Message>()
         verify(messaging).send(request.capture())
 
-        assertEquals("${msg.author.firstName} ${msg.author.lastName}: ${msg.text}", request.firstValue.body)
+        assertEquals("${msg.author.firstName} ${msg.author.lastName}", request.firstValue.subject)
+        assertEquals(msg.text, request.firstValue.body)
         assertEquals(account.fcmToken, request.firstValue.recipient.deviceToken)
     }
 
